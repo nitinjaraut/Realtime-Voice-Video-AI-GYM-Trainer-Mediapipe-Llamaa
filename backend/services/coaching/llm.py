@@ -21,13 +21,25 @@ class LLMCoach:
             {"role": "user", "content": prompt},
         ]
 
-        response = self.client.chat.completions.create(
-            model="qwen/qwen3.8-27b",
-            messages=messages,
-            temperature=0.4,
-        )
+        candidate_models = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        text = ""
 
-        text = response.choices[0].message.content.strip()
+        for model_name in candidate_models:
+            try:
+                response = self.client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    temperature=0.4,
+                    max_tokens=250,
+                )
+                text = response.choices[0].message.content.strip()
+                if text:
+                    break
+            except Exception:
+                continue
+
+        if not text:
+            text = "Keep your core tight and maintain steady form!"
+
         self.history.append({"role": "assistant", "content": text})
-
         return text

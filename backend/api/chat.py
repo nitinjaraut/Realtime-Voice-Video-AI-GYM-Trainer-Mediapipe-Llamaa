@@ -117,19 +117,29 @@ def ask_coach(req: ChatRequest):
 
     messages.append({"role": "user", "content": user_prompt})
 
-    try:
-        client = _get_groq_client()
-        response = client.chat.completions.create(
-            model="qwen/qwen3.8-27b",
-            messages=messages,
-            temperature=0.3,
-            max_tokens=1024,
-        )
-        answer = response.choices[0].message.content.strip()
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Groq LLM call failed: {e}")
+    # Try models in order of preference, within Groq's rate limits (max_tokens=700 <= 1000 OTPM limit)
+    candidate_models = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+    client = _get_groq_client()
+    answer = None
+    last_error = None
+
+    for model_name in candidate_models:
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=700,
+            )
+            answer = response.choices[0].message.content.strip()
+            if answer:
+                break
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Model {model_name} failed: {e}. Trying next candidate...")
+
+    if not answer:
+        logger.error(f"All Groq LLM candidates failed. Last error: {last_error}")
         return ChatResponse(
             answer=(
                 "🏋️ The AI Coach is catching its breath! "

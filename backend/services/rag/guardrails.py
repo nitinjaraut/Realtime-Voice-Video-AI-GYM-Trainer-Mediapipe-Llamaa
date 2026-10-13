@@ -14,18 +14,62 @@ import re
 # ── Keywords & patterns ──────────────────────────────────────
 
 _FITNESS_KEYWORDS = {
-    "exercise", "workout", "gym", "muscle", "squat", "push-up", "pushup",
-    "curl", "press", "lunge", "rep", "set", "form", "weight", "dumbbell",
-    "barbell", "bench", "deadlift", "plank", "stretch", "warm up", "cool down",
-    "protein", "nutrition", "diet", "calorie", "carb", "fat", "meal",
-    "recovery", "rest", "sleep", "soreness", "fatigue", "overtraining",
-    "strength", "endurance", "cardio", "flexibility", "mobility",
-    "pain", "injury", "hurt", "knee", "back", "shoulder", "wrist",
-    "posture", "alignment", "angle", "depth", "range of motion",
-    "beginner", "intermediate", "training", "fitness", "health",
-    "creatine", "supplement", "hydration", "water",
-    "bicep", "tricep", "chest", "leg", "core", "abs", "glute",
-    "body", "breathing", "technique",
+    # Workout splits & programs
+    "split", "splits", "spilt", "spilts", "ppl", "push pull", "push-pull",
+    "routine", "routines", "program", "programs", "programme", "schedule",
+    "bro split", "arnold split", "upper lower", "full body", "calisthenics",
+    "hiit", "crossfit", "circuit", "tabata", "amrap", "emom",
+
+    # Exercises & movements
+    "exercise", "exercises", "workout", "workouts", "gym", "lift", "lifting",
+    "squat", "squats", "pushup", "push-up", "pushups", "push-ups",
+    "pullup", "pull-up", "pullups", "pull-ups", "chinup", "chin-up",
+    "curl", "curls", "press", "presses", "bench press", "bench",
+    "overhead press", "shoulder press", "deadlift", "deadlifts",
+    "lunge", "lunges", "dip", "dips", "plank", "planks", "row", "rows",
+    "lateral raise", "shrug", "crunch", "crunches", "extension", "fly", "flys",
+
+    # Training principles & metrics
+    "rep", "reps", "repetition", "set", "sets", "weight", "weights",
+    "dumbbell", "dumbbells", "barbell", "barbells", "kettlebell", "kettlebells",
+    "machine", "cable", "plates", "form", "technique", "depth", "alignment",
+    "range of motion", "rom", "hypertrophy", "progressive overload", "overload",
+    "volume", "intensity", "failure", "rpe", "rir", "1rm", "one rep max",
+    "superset", "drop set", "dropset", "rest pause", "tempo", "deload",
+    "frequency", "aerobic", "anaerobic", "cardio", "endurance", "strength",
+    "muscle", "muscles", "hypertrophic",
+
+    # Anatomy & Muscle Groups
+    "bicep", "biceps", "tricep", "triceps", "chest", "pec", "pecs",
+    "back", "lat", "lats", "trap", "traps", "shoulder", "shoulders",
+    "delt", "delts", "leg", "legs", "quad", "quads", "hamstring", "hamstrings",
+    "glute", "glutes", "calf", "calves", "core", "abs", "abdominal",
+    "obliques", "forearm", "forearms", "hip", "hips", "knee", "knees",
+    "ankle", "ankles", "wrist", "wrists", "elbow", "elbows", "spine", "lumbar",
+
+    # Nutrition, Body composition & Supplements
+    "protein", "carb", "carbs", "carbohydrate", "fat", "fats", "calorie", "calories",
+    "nutrition", "diet", "macros", "meal", "meals", "water", "hydration",
+    "creatine", "supplement", "supplements", "whey", "casein", "isolate",
+    "bcaa", "pre-workout", "preworkout", "caffeine", "bulk", "bulking",
+    "cut", "cutting", "deficit", "surplus", "lean", "fat loss", "weight loss",
+    "muscle gain", "body recomposition", "tone", "toning",
+
+    # Recovery, Health & Safety
+    "recovery", "recover", "rest", "rest day", "sleep", "soreness", "doms",
+    "fatigue", "overtraining", "tired", "exhaustion", "warmup", "warm up",
+    "warm-up", "cooldown", "cool down", "cool-down", "stretch", "stretching",
+    "mobility", "flexibility", "foam roll", "injury", "pain", "hurt", "sore",
+    "strain", "sprain", "posture", "breathing", "fitness", "health", "trainer",
+    "coach", "bodybuilding", "powerlifting", "physique",
+}
+
+_EXPLICIT_OFF_TOPIC_KEYWORDS = {
+    "python", "javascript", "typescript", "c++", "java", "coding", "software",
+    "debug", "git", "docker", "kubernetes", "sql", "linux", "html", "css",
+    "crypto", "bitcoin", "ethereum", "stock price", "stock market",
+    "election", "president", "politics", "congress", "senate",
+    "movie plot", "box office", "actor", "actress",
 }
 
 _MEDICAL_KEYWORDS = {
@@ -64,17 +108,28 @@ _MAX_CONTEXT_CHARS = 3000  # Roughly ~750 tokens
 def is_fitness_related(query: str) -> bool:
     """
     Check if the user's query is related to fitness/health/nutrition.
-    Uses keyword matching + a generous heuristic to avoid false negatives.
+    Uses positive keyword matching + off-topic exclusions.
     """
     query_lower = query.lower()
 
-    # Direct keyword match
+    # Reject obvious off-topic categories (coding, politics, crypto, etc.)
+    for off_topic in _EXPLICIT_OFF_TOPIC_KEYWORDS:
+        if off_topic in query_lower:
+            return False
+
+    # Direct keyword match against comprehensive fitness vocabulary
     for keyword in _FITNESS_KEYWORDS:
         if keyword in query_lower:
             return True
 
-    # Very short queries are ambiguous — give benefit of the doubt
-    if len(query.split()) <= 3:
+    # Check common sub-words or variations
+    words = re.findall(r"\b\w+\b", query_lower)
+    for w in words:
+        if w in _FITNESS_KEYWORDS:
+            return True
+
+    # Very short queries (greetings, simple questions) give benefit of the doubt
+    if len(words) <= 4:
         return True
 
     return False
@@ -130,32 +185,29 @@ def build_rag_system_prompt(context: str, has_context: bool) -> str:
     Varies based on whether we retrieved relevant context or not.
     """
     base = (
-        "You are FormFit AI Coach, a knowledgeable and friendly fitness assistant. "
-        "You help beginners and intermediate gym users with exercise form, workout "
-        "routines, nutrition, injury prevention, and recovery.\n\n"
+        "You are FormFit AI Coach, a knowledgeable, encouraging, and elite personal fitness coach. "
+        "You guide users on workout routines and splits (such as PPL, Upper/Lower, Full Body, Bro Split), "
+        "exercise technique, rep ranges, nutrition, injury prevention, and recovery.\n\n"
         "Guidelines:\n"
-        "- Be concise but thorough. Aim for 2-4 paragraph responses.\n"
-        "- Use bullet points for lists of tips or steps.\n"
-        "- Always prioritize safety. If something could be dangerous, say so.\n"
-        "- Never provide specific medical diagnoses or treatment plans.\n"
-        "- If you're unsure, say so honestly rather than guessing.\n"
-        "- Reference the provided context when available.\n"
+        "- Be actionable, motivating, and clear. Format responses with neat paragraphs, bold headings, or bullet points.\n"
+        "- When asked about workout splits or routines, clearly explain how the split works, the recommended day-by-day schedule, which muscles are trained together, and who benefits most.\n"
+        "- Always prioritize safe form, progressive overload, and adequate rest.\n"
+        "- Never prescribe specific medications or provide formal medical diagnoses.\n"
+        "- If a user asks a question completely unrelated to fitness, gym, sports, or health, "
+        "politely let them know you specialize in fitness and training, and suggest fitness topics they can ask about.\n"
     )
 
     if has_context:
         base += (
-            "\nYou have been provided with relevant information from a curated "
-            "fitness knowledge base. Base your answer primarily on this context. "
-            "If the context doesn't fully answer the question, you may supplement "
-            "with general fitness knowledge, but indicate which parts come from "
-            "your general knowledge.\n\n"
+            "\nYou have been provided with relevant information from our verified "
+            "fitness knowledge base. Use this context to give an accurate, detailed answer. "
+            "You may supplement with your deep fitness knowledge as needed.\n\n"
             f"### Retrieved Context\n{context}\n"
         )
     else:
         base += (
-            "\nNo specific context was retrieved from the knowledge base for this "
-            "question. Provide a helpful answer based on general, well-established "
-            "fitness knowledge. Be transparent that this is general guidance.\n"
+            "\nProvide a comprehensive, high-quality response based on established fitness "
+            "and exercise science principles.\n"
         )
 
     return base
