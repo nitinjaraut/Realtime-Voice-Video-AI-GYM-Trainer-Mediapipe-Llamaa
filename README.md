@@ -124,7 +124,15 @@ cd frontend
 npm install
 ```
 
-### 4. Run Both Servers
+### 4. Run the Project
+
+**Option A — Quick Start (Recommended — One Command):**
+```bash
+./start.sh
+```
+> This starts both the FastAPI backend and Next.js frontend together, with automatic health checking and clean shutdown when you press `Ctrl + C`.
+
+**Option B — Manual (Two Terminals):**
 
 **Terminal 1 — Backend (port 8000):**
 ```bash

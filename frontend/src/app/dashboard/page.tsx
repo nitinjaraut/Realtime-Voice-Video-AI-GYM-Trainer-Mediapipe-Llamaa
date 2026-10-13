@@ -18,6 +18,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<OverallStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/");
@@ -27,6 +29,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       if (!user) return;
+      setError(null);
       try {
         const [dashData, overallStats] = await Promise.all([
           getDashboardData(user.user_id),
@@ -34,8 +37,9 @@ export default function DashboardPage() {
         ]);
         setData(dashData);
         setStats(overallStats);
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
+      } catch (err: any) {
+        console.warn("Backend not reachable:", err?.message || err);
+        setError("Unable to connect to the backend server. Please make sure FastAPI is running on port 8000.");
       } finally {
         setIsLoading(false);
       }
@@ -47,6 +51,24 @@ export default function DashboardPage() {
     return (
       <div className="flex justify-center items-center h-[60vh]">
         <div className="w-8 h-8 border-4 border-[var(--color-accent-blue)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-4">
+        <div className="text-5xl">⚡</div>
+        <h2 className="text-2xl font-bold">Backend Server Offline</h2>
+        <p className="text-[var(--color-text-muted)] max-w-md">
+          {error}
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:opacity-90 transition-opacity shadow-lg"
+        >
+          Retry Connection
+        </button>
       </div>
     );
   }
